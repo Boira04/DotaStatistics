@@ -1,4 +1,4 @@
-# Steps to follow
+# Steps to follow on Windows
 ## First we need to create the containers
 docker compose up -d
 
