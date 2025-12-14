@@ -50,21 +50,20 @@ def get_density_rankings(limit: int = 10):
 def get_regional_roles():
     db = get_db_connection()
     pipeline = [
-        # 1. Unim jugadors amb països per saber la Regió
+     
         { "$lookup": { "from": "countries", "localField": "country_code", "foreignField": "code", "as": "c" } },
         { "$unwind": "$c" },
-        # 2. Agrupem per Regió i Rol (1=Carry/Mid, 2=Support)
+      
         { "$group": {
             "_id": { "region": "$c.region", "role": "$fantasy_role" },
             "count": { "$sum": 1 }
         }},
-        # 3. Ordenem per regió
+     
         { "$sort": { "_id.region": 1 } }
     ]
-    # Processar resultats per fer-los més llegibles al frontend
+  
     raw_data = list(db["players"].aggregate(pipeline))
-    
-    # Formategem la resposta: { "Europe": {"Core": 120, "Support": 90}, ... }
+ 
     formatted = {}
     for item in raw_data:
         region = item["_id"]["region"]
@@ -87,7 +86,7 @@ def get_heatmap_data():
     pipeline = [
         { "$lookup": { "from": "countries", "localField": "country_code", "foreignField": "code", "as": "c" } },
         { "$unwind": "$c" },
-        # Només volem coordenades vàlides
+      
         { "$match": { "c.latlng": { "$exists": True, "$ne": [] } } },
         { "$project": {
             "_id": 0,
@@ -144,5 +143,76 @@ def get_subregion_dominance():
             "total_players": { "$sum": 1 }
         }},
         { "$sort": { "total_players": -1 } }
+    ]
+    return list(db["players"].aggregate(pipeline))
+
+# ---------------------------------------------------------
+# 6. WEALTH CORRELATION (Economics)
+# Goal: Demostrar que Dota 2 és popular en economies emergents/mitjanes
+# ---------------------------------------------------------
+@app.get("/analytics/correlation/wealth")
+def get_wealth_correlation():
+    db = get_db_connection()
+    pipeline = [
+        { "$group": { "_id": "$country_code", "player_count": {"$sum": 1} } },
+        
+        { "$lookup": { "from": "countries", "localField": "_id", "foreignField": "code", "as": "c" } },
+        { "$unwind": "$c" },
+        
+        { "$match": { 
+            "c.gdp": { "$exists": True, "$ne": None },
+            "c.population": { "$gt": 1000000 } 
+        }},
+
+        { "$project": {
+            "_id": 0,
+            "country": "$c.name",
+            "code": "$_id",
+            "gdp_per_capita": "$c.gdp",    
+            "total_players": "$player_count", 
+            "players_per_million": {       
+                "$multiply": [
+                    { "$divide": ["$player_count", "$c.population"] },
+                    1000000
+                ]
+            }
+        }},
+    
+        { "$sort": { "gdp_per_capita": -1 } }
+    ]
+    return list(db["players"].aggregate(pipeline))
+
+
+# ---------------------------------------------------------
+# 7. INFRASTRUCTURE CORRELATION (Technology)
+# Goal: Demostrar la barrera d'entrada tecnològica
+# ---------------------------------------------------------
+@app.get("/analytics/correlation/internet")
+def get_internet_correlation():
+    db = get_db_connection()
+    pipeline = [
+        { "$group": { "_id": "$country_code", "player_count": {"$sum": 1} } },
+        { "$lookup": { "from": "countries", "localField": "_id", "foreignField": "code", "as": "c" } },
+        { "$unwind": "$c" },
+        
+        { "$match": { 
+            "c.internet": { "$exists": True, "$ne": None },
+            "c.population": { "$gt": 1000000 } 
+        }},
+
+        { "$project": {
+            "_id": 0,
+            "country": "$c.name",
+            "code": "$_id",
+            "internet_access_percent": "$c.internet",
+            "players_per_million": {                  
+                "$multiply": [
+                    { "$divide": ["$player_count", "$c.population"] },
+                    1000000
+                ]
+            }
+        }},
+        
+        { "$sort": { "internet_access_percent": 1 } }
     ]
     return list(db["players"].aggregate(pipeline))
