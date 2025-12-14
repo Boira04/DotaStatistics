@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # --- MODULE D: DATABASE STORAGE ---
   mongo:
     image: mongo:6.0
     container_name: dota_mongo
@@ -21,16 +20,25 @@ services:
     ports:
       - "8081:8081"
     environment:
-      # Credencials per connectar-se a la Base de Dades (intern)
       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
       ME_CONFIG_MONGODB_ADMINPASSWORD: password123
       ME_CONFIG_MONGODB_URL: mongodb://admin:password123@mongo:27017/
-      
-      # AFEGEIX AIXÒ: Credencials per entrar a la WEB (Login)
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: password123
     depends_on:
       - mongo
+
+  api:
+    build: .
+    container_name: dota_api
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+    environment:
+      MONGO_URI: mongodb://admin:password123@mongo:27017/
+      DB_NAME: dota_project
 
 volumes:
   mongo_data:
