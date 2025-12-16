@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import get_db_connection
 
 # Import the new routers
 from backend.routers import auth, users
+from backend.deps import get_current_user_claims
 
 app = FastAPI(
     title="Dota 2 Country Analytics API",
@@ -30,7 +31,7 @@ def read_root():
 # 1. THE "PRO-GAMER DENSITY" RANKING
 # ---------------------------------------------------------
 @app.get("/analytics/density/rankings")
-def get_density_rankings(limit: int = 10):
+def get_density_rankings(limit: int = 10, claims: dict = Depends(get_current_user_claims)):
     db = get_db_connection()
     pipeline = [
         { "$group": { "_id": "$country_code", "player_count": {"$sum": 1} } },
@@ -54,7 +55,7 @@ def get_density_rankings(limit: int = 10):
 # Goal: Saber si Europa juga més de "Support" o "Core"
 # ---------------------------------------------------------
 @app.get("/analytics/regions/roles")
-def get_regional_roles():
+def get_regional_roles(claims: dict = Depends(get_current_user_claims)):
     """
     Returns the distribution of player roles (Position 1-5) across different regions.
     """
@@ -141,7 +142,7 @@ def get_regional_roles():
 # Goal: Retornar coordenades per pintar un mapa
 # ---------------------------------------------------------
 @app.get("/analytics/map/distribution")
-def get_heatmap_data():
+def get_heatmap_data(claims: dict = Depends(get_current_user_claims)):
     db = get_db_connection()
     pipeline = [
         { "$lookup": { "from": "countries", "localField": "country_code", "foreignField": "code", "as": "c" } },
@@ -164,7 +165,7 @@ def get_heatmap_data():
 # Goal: Països GRANS (> 20M hab) amb ZERO jugadors pros
 # ---------------------------------------------------------
 @app.get("/analytics/insights/market-gaps")
-def get_market_gaps():
+def get_market_gaps(claims: dict = Depends(get_current_user_claims)):
     db = get_db_connection()
     # Aquí comencem des de la col·lecció COUNTRIES
     pipeline = [
@@ -194,7 +195,7 @@ def get_market_gaps():
 # Goal: Quina subregió (Eastern Europe vs SE Asia) domina?
 # ---------------------------------------------------------
 @app.get("/analytics/regions/dominance")
-def get_subregion_dominance():
+def get_subregion_dominance(claims: dict = Depends(get_current_user_claims)):
     db = get_db_connection()
     pipeline = [
         { "$lookup": { "from": "countries", "localField": "country_code", "foreignField": "code", "as": "c" } },
@@ -212,7 +213,7 @@ def get_subregion_dominance():
 # Goal: Demostrar que Dota 2 és popular en economies emergents/mitjanes
 # ---------------------------------------------------------
 @app.get("/analytics/correlation/wealth")
-def get_wealth_correlation():
+def get_wealth_correlation(claims: dict = Depends(get_current_user_claims)):
     db = get_db_connection()
     pipeline = [
         { "$group": { "_id": "$country_code", "player_count": {"$sum": 1} } },
@@ -249,7 +250,7 @@ def get_wealth_correlation():
 # Goal: Demostrar la barrera d'entrada tecnològica
 # ---------------------------------------------------------
 @app.get("/analytics/correlation/internet")
-def get_internet_correlation():
+def get_internet_correlation(claims: dict = Depends(get_current_user_claims)):
     db = get_db_connection()
     pipeline = [
         { "$group": { "_id": "$country_code", "player_count": {"$sum": 1} } },
@@ -284,7 +285,7 @@ def get_internet_correlation():
 # Goal:Obtenir la correlació entre la població jove (15-24 anys) i els jugadors professionals per a un país específic
 # ---------------------------------------------------------
 @app.get("/analytics/country/{country_name}/youth-correlation")
-def get_country_youth_correlation(country_name: str):
+def get_country_youth_correlation(country_name: str, claims: dict = Depends(get_current_user_claims)):
     db = get_db_connection()
     
     country = db["countries"].find_one(

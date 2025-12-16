@@ -4,10 +4,8 @@ import time
 import os
 
 # Configuració
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb://admin:password123@mongo:27017/"
-)
+MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
+MONGO_URI = f"mongodb://admin:password123@{MONGO_HOST}:27017/" # Usa MONGO_HOST aquí
 DB_NAME = "dota_project"
 
 def get_database():

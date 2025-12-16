@@ -15,4 +15,6 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python etl/main_etl.py && uvicorn backend.main:app --host 0.0.0.0 --port 8000"]
+ENV MONGO_HOST mongo
+
+CMD ["sh", "-c", "python etl/main_etl.py && PYTHONPATH=/app uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"]
