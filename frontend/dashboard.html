@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dota 2 Analytics - Pro Dashboard</title>
+    <!-- Bootstrap 5 Dark Mode -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet.js (Map) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        /* --- HIGH CONTRAST THEME --- */
+        body { 
+            background-color: #010409; /* Negre pur/profund */
+            color: #e6edf3; /* Blanc trencat (molt llegible) */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        
+        /* Navbar */
+        .navbar { 
+            background-color: #161b22 !important; 
+            border-bottom: 1px solid #30363d; 
+        }
+
+        /* Cards */
+        .card { 
+            background-color: #0d1117; /* Fons de targeta fosc */
+            border: 1px solid #30363d; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6); 
+            border-radius: 6px;
+        }
+        .card-header { 
+            background-color: #161b22;
+            border-bottom: 1px solid #30363d; 
+            font-weight: 700; 
+            color: #58a6ff; /* Blau brillant */
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            font-size: 0.85rem;
+        }
+
+        /* CANVIAAAAAAAT */
+        .header-white-text {
+            color: #ffffff !important;
+        }
+
+        /* CLASE PARA LAS ETIQUETAS DE RESULTADOS EN BLANCO */
+        .result-label-white {
+            color: #e6edf3 !important; /* Blanco suave */
+            font-size: 0.85rem;
+        }
+
+        /* CLASE PARA EL NOMBRE DEL PAÍS EN NEGRO (Con fondo claro para contraste) */
+        .country-name-black {
+            color: #000000 !important;
+            background-color: #f0f6fc; /* Fondo claro para que se lea el negro */
+            padding: 5px 15px;
+            border-radius: 6px;
+            display: inline-block;
+            font-weight: 800;
+        }
+        .table-country-badge {
+            color: #000000 !important;  /* Lletres Negres */
+            background-color: #f0f6fc;  /* Fons Blanc/Clar */
+            padding: 3px 8px;           /* Una mica d'espai */
+            border-radius: 4px;         /* Bordes arrodonits */
+            font-weight: 700;           /* Negreta */
+            display: inline-block;
+        }
+        /* CANVIAAAAAAAT */
+
+        /* Inputs & Selects */
+        .form-control, .form-select {
+            background-color: #010409;
+            border: 1px solid #30363d;
+            color: #e6edf3;
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: #0d1117;
+            color: #fff;
+            border-color: #1f6feb;
+            box-shadow: 0 0 0 0.25rem rgba(31, 111, 235, 0.25);
+        }
+        ::placeholder { color: #6e7681 !important; }
+
+        /* Tables */
+        .table { color: #e6edf3; }
+        .table-hover tbody tr:hover { color: #fff; background-color: #1f242c; }
+        .table thead th { color: #8b949e; border-bottom: 2px solid #30363d; }
+        .table td { border-color: #21262d; }
+        
+        /* Map & Charts */
+        #map { height: 400px; width: 100%; border-radius: 0 0 6px 6px; border-top: 1px solid #30363d; }
+        canvas { max-height: 300px; }
+
+        /* --- UNTAPPED MARKET CARDS (NOU DISSENY) --- */
+        .gap-card { 
+            background: #161b22; 
+            border: 1px solid #30363d;
+            border-left: 4px solid #238636; /* Verd èxit */
+            margin-bottom: 12px; 
+            padding: 15px; 
+            border-radius: 4px;
+            transition: transform 0.2s;
+        }
+        .gap-card:hover {
+            transform: translateX(5px);
+            background: #1c2128;
+        }
+        .gap-stat-label { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; }
+        .gap-stat-value { font-size: 1rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark px-4 sticky-top">
+    <a class="navbar-brand fw-bold" href="#">
+        <span class="text-danger">DOTA</span> ANALYTICS <span class="badge bg-secondary text-light ms-2" style="font-size: 0.6em;">PRO</span>
+    </a>
+    <div class="ms-auto d-flex align-items-center">
+        <span id="usernameDisplay" class="me-3" style="color: #8b949e;">User</span>
+        <button onclick="logout()" class="btn btn-sm btn-outline-danger">Logout</button>
+    </div>
+</nav>
+
+<div class="container-fluid mt-4 px-4">
+    
+    <!-- SECTION 1: SEARCH (Deep Dive) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card" style="border-color: #1f6feb;">
+                <!-- CAMBIO 1: Título de la tarjeta en BLANCO (text-white) -->
+                <div class="card-header text-white" style="background: #1f6feb;">
+                    🔍 Country Youth & Talent Deep Dive
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label text-white small">Analyze a specific country:</label>
+                            <div class="input-group">
+                                <input type="text" id="countryInput" class="form-control" placeholder="e.g. Peru, Russia, China...">
+                                <button class="btn btn-primary" onclick="searchCountryStats()">Analyze</button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div id="countryResult" class="d-none p-3 border border-secondary rounded mt-3 mt-md-0" style="background: #161b22;">
+                                
+                                <!-- CAMBIO 2: CountryName en NEGRO (con fondo blanco para contraste) -->
+                                <h4 id="resCountryName" class="country-name-black mb-3">Country Name</h4>
+                                
+                                <div class="row text-center">
+                                    <div class="col-md-3 border-end border-secondary">
+                                        <!-- CAMBIO 3: Letras de títulos pequeños en BLANCO -->
+                                        <div class="result-label-white">Total Population</div>
+                                        <div id="resPop" class="fw-bold fs-5 text-white">0</div>
+                                    </div>
+                                    <div class="col-md-3 border-end border-secondary">
+                                        <div class="result-label-white">Young Pop (15-24)</div>
+                                        <div id="resYouth" class="fw-bold fs-5 text-info">0%</div>
+                                    </div>
+                                    <div class="col-md-3 border-end border-secondary">
+                                        <div class="result-label-white">Pro Players</div>
+                                        <div id="resPlayers" class="fw-bold fs-5 text-warning">0</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="result-label-white">Talent Density</div>
+                                        <div id="resDensity" class="fw-bold fs-5 text-success">Low</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Texto de Insight en blanco suave -->
+                                <div id="resInsight" class="mt-3 text-white fst-italic border-top border-secondary pt-2 small"></div>
+                            </div>
+                            <div id="countryError" class="d-none text-danger mt-3 fw-bold">❌ Country not found or no data available.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 2: MAP -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">🌍 Global Player Heatmap</div>
+                <div class="card-body p-0">
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 3: CHARTS -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">💰 Wealth vs Talent (GDP Correlation)</div>
+                <div class="card-body">
+                    <canvas id="wealthChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">🌐 Internet Infrastructure vs Talent</div>
+                <div class="card-body">
+                    <canvas id="internetChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 4: REGIONS & ROLES -->
+    <div class="row mb-4">
+        <!-- Subregion Dominance -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">🏆 Regional Dominance</div>
+                <div class="card-body">
+                    <canvas id="dominanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Roles with SELECTOR -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>🛡️ Role Distribution</span>
+                    <select id="regionRoleSelector" class="form-select form-select-sm" style="width: auto; max-width: 150px;">
+                        <option value="" disabled selected>Loading...</option>
+                    </select>
+                </div>
+                <div class="card-body">
+                    <canvas id="roleChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 5: DATA TABLES -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card h-100">
+                <div class="card-header">📊 Top 10 Countries by Density</div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Country</th>
+                                    <th>Players</th>
+                                    <th>Population</th>
+                                    <th>Density (per M)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="densityTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MARKET GAPS (NOU DISSENY) -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">🚀 Untapped Markets (Business Insights)</div>
+                <div class="card-body" id="marketGapsContainer" style="max-height: 500px; overflow-y: auto; background-color: #0d1117;">
+                    <!-- JS will fill this with cool cards -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+    if(window.location.pathname.includes("dashboard.html")) {
+        checkAuth();
+        loadDashboardData();
+        document.getElementById("countryInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") searchCountryStats();
+        });
+    }
+</script>
+</body>
+</html>
