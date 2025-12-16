@@ -323,3 +323,124 @@ function renderBarChart(canvasId, data) {
         }
     });
 }
+
+// ==========================================
+// ADMIN LOGIC & JWT UTILS
+// ==========================================
+
+// 1. Funció auxiliar per llegir el contingut del Token JWT (sense llibreries externes)
+function parseJwt(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+}
+
+// 2. Comprovar si soc admin i mostrar botó al Dashboard
+function checkAdminRole() {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const payload = parseJwt(token);
+    
+    // Si el rol és admin, mostrem el botó d'accés al panell
+    if (payload && payload.role === "admin") {
+        const navContainer = document.querySelector(".navbar .ms-auto");
+        // Evitem duplicats
+        if (!document.getElementById("adminBtn")) {
+            const btn = document.createElement("a");
+            btn.id = "adminBtn";
+            btn.href = "admin.html";
+            btn.className = "btn btn-sm btn-outline-warning me-2";
+            btn.innerHTML = "⚙️ Admin Panel";
+            // L'inserim abans del nom d'usuari
+            navContainer.insertBefore(btn, document.getElementById("usernameDisplay"));
+        }
+    }
+}
+
+// 3. Carregar llista d'usuaris (Només funcionarà a admin.html)
+async function loadAdminUsers() {
+    const tableBody = document.getElementById("usersTableBody");
+    if (!tableBody) return; // Si no estem a la pàgina d'admin, sortim
+
+    try {
+        const data = await fetchAuth("/users?limit=100"); 
+        
+        if (data.detail === "Forbidden" || data.detail === "Admin privileges required") {
+            alert("⛔ ACCESS DENIED: You are not an Admin.");
+            window.location.href = "dashboard.html";
+            return;
+        }
+
+        tableBody.innerHTML = "";
+        
+        // Assegurem que data.data existeix (per si l'API retorna alguna cosa rara)
+        const usersList = data.data || []; 
+
+        usersList.forEach(user => {
+            const isMe = user.username === localStorage.getItem("username");
+            
+            // Botó d'esborrar (Deshabilitat si ets tu mateix)
+            const deleteBtn = isMe 
+                ? `<span class="badge bg-secondary">Current User</span>`
+                : `<button onclick="deleteUser('${user.user_id}', '${user.username}')" class="btn btn-sm btn-danger">🗑 Delete</button>`;
+
+            // Badge de rol
+            const roleBadge = user.role === 'admin' 
+                ? `<span class="badge bg-warning text-dark">ADMIN</span>`
+                : `<span class="badge bg-info text-dark">USER</span>`;
+
+            const row = `
+                <tr>
+                    <td class="text-muted small">${user.user_id}</td>
+                    
+                    <!-- AQUI ESTAVA L'ERROR: Ara fem servir user-badge per lletra negra -->
+                    <td><span class="user-badge">${user.username}</span></td>
+                    
+                    <td class="text-muted">${user.email}</td>
+                    <td>${roleBadge}</td>
+                    <td class="text-end">${deleteBtn}</td>
+                </tr>
+            `;
+            tableBody.innerHTML += row;
+        });
+
+    } catch (error) {
+        console.error("Admin Load Error", error);
+    }
+}
+
+// 4. Esborrar Usuari
+async function deleteUser(userId, username) {
+    if(!confirm(`⚠️ ARE YOU SURE?\nThis will permanently delete the user: ${username}`)) {
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${API_URL}/users/${userId}`, {
+            method: "DELETE",
+            headers: { 
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (response.ok) {
+            // Recarreguem la taula
+            loadAdminUsers(); 
+        } else {
+            const err = await response.json();
+            alert("Error: " + err.detail);
+        }
+    } catch (error) {
+        alert("Connection Error");
+    }
+}
